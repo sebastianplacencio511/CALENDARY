@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendario con Login y Notas</title>
+<style>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0; padding: 0; height: 100vh; overflow: hidden; color: white;
+    display: flex; flex-direction: column;
+    font-weight: 500;
+}
+#videoFondo {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: -1; filter: brightness(1.1) saturate(1.2);
+}
+#login-container, #calendar-container, #admin-container {
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    height: 100vh; background: rgba(255,255,255,0.08); backdrop-filter: blur(10px);
+    border-radius: 20px; padding: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+input {
+    padding: 12px; margin: 8px; width: 220px; border: none; border-radius: 8px;
+    background: rgba(255,255,255,0.2); color: white; outline: none; font-weight:bold;
+    font-size:1em;
+}
+input::placeholder { color: #fff; opacity:0.7; font-weight:bold; }
+button {
+    padding: 12px; margin: 6px; width: 220px; border: none; border-radius: 8px;
+    background: linear-gradient(135deg, #00c6ff, #0072ff); color: white; font-weight: bold;
+    cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; font-size:1em;
+}
+button:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,114,255,0.6); }
+table {
+    border-collapse: collapse; width: 350px; background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(6px); border-radius: 12px; overflow: hidden; box-shadow: 0 6px 20px rgba(0,0,0,0.3); color: white;
+    font-weight: bold;
+}
+th, td { border: 1px solid rgba(255,255,255,0.2); text-align: center; padding: 10px; font-weight:bold; }
+th { background: rgba(0,114,255,0.6); }
+td:hover { background: rgba(0,114,255,0.4); cursor: pointer; }
+caption { font-size: 1.6em; margin: 10px 0; font-weight: bolder; }
+#notePopup {
+    position: absolute; top: 15%; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.85); padding: 20px; border-radius: 12px;
+    display: none; flex-direction: column; color: white; width: 300px; z-index: 100;
+    font-weight:bold;
+}
+#notePopup.show { display: flex; }
+#notePopup input, #notePopup textarea { margin-bottom: 10px; font-weight:bold; }
+#notePopup .closeBtn {
+    position: absolute; top: 5px; right: 10px; cursor: pointer; font-weight: bolder; font-size: 16px;
+}
+#backBtn {
+    position: fixed; top: 20px; left: 20px; padding: 10px 15px; border: none;
+    border-radius: 8px; background: linear-gradient(135deg, #ff5f6d, #ffc371);
+    color: white; font-weight: bolder; cursor: pointer; z-index: 10; font-size:1em;
+}
+#backBtn:hover { transform: translateY(-2px); }
+textarea { width: 100%; border-radius:8px; border:none; padding:8px; resize:none; font-weight:bold; }
+
+#notesPanel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 250px;
+    max-height: calc(100% - 40px);
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    overflow-y: auto;
+    font-weight:bold;
+}
+#notesPanel h3 { margin-top: 0; font-size: 1.1em; text-align: center; color: #ffd700; font-weight:bolder; }
+.noteItem { padding: 8px; margin-bottom: 6px; background: rgba(255,255,255,0.1); border-radius: 8px; font-size: 0.95em; font-weight:bold; }
+#calendarWrapper { display: flex; flex-direction: column; align-items: center; }
+#monthControls { margin-bottom:10px; font-weight:bold; }
+
+#admin-container h2 { margin-bottom: 10px; font-weight:bolder; font-size:1.5em; }
+#listaCuentasDiv table, #listaCuentasDiv td, #listaCuentasDiv th { color: white; font-weight:bold; }
+#confirmDeletePopup button { cursor:pointer; font-weight:bold; }
+</style>
+</head>
+<body>
+
+<video autoplay muted loop id="videoFondo">
+  <source src="y2mate--My-most-beautiful-drone-shot-Cinematic-FPV-on-an_1080.mp4" type="video/mp4">
+</video>
+
+<div id="login-container">
+    <input type="text" id="username" placeholder="Nombre de usuario">
+    <input type="password" id="password" placeholder="Contraseña">
+    <button id="createBtn">Crear cuenta</button>
+    <button id="loginBtn">Iniciar sesión</button>
+</div>
+
+<div id="calendar-container" style="display:none; position:relative;">
+    <button id="backBtn">Retroceder</button>
+    <div id="calendarWrapper">
+        <div id="monthControls">
+            <button id="prevMonth">⬅</button>
+            <span id="monthCaption">Agosto 2025</span>
+            <button id="nextMonth">➡</button>
+        </div>
+        <table>
+            <thead><tr><th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th></tr></thead>
+            <tbody id="calendarBody"></tbody>
+        </table>
+    </div>
+    <div id="notesPanel">
+        <h3>Todas tus notas</h3>
+        <div id="notesList"></div>
+    </div>
+</div>
+
+<div id="admin-container" style="display:none;">
+    <h2>Panel de Admin</h2>
+    <button id="backAdminBtn">Cerrar sesión admin</button>
+    <div id="adminContent" style="margin-top:20px;">
+        <button id="verCuentasBtn">Ver todas las cuentas</button>
+        <div id="cambiarPassDiv" style="margin-top:10px;">
+            <input type="text" id="usuarioCambio" placeholder="Usuario a cambiar contraseña">
+            <input type="text" id="nuevaPass" placeholder="Nueva contraseña">
+            <button id="cambiarPassBtn">Cambiar contraseña</button>
+        </div>
+        <div id="listaCuentasDiv" style="margin-top:10px; max-height:300px; overflow-y:auto;"></div>
+    </div>
+</div>
+
+<div id="notePopup">
+    <span class="closeBtn">X</span>
+    <textarea id="noteText" rows="4" placeholder="Escribe tu nota aquí..."></textarea>
+    <button id="saveNoteBtn">Guardar nota</button>
+</div>
+
+<div id="confirmDeletePopup" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
+    background: rgba(0,0,0,0.9); padding:20px; border-radius:12px; color:white; z-index:100; text-align:center;">
+    <p>¿Estás seguro que deseas eliminar la cuenta?</p>
+    <button id="confirmYesBtn" style="margin:5px; padding:8px 12px;">Sí</button>
+    <button id="confirmNoBtn" style="margin:5px; padding:8px 12px;">No</button>
+</div>
+
+<script>
+// Script se mantiene exactamente igual que tu versión anterior
+const createBtn = document.getElementById("createBtn");
+const loginBtn = document.getElementById("loginBtn");
+const loginContainer = document.getElementById("login-container");
+const calendarContainer = document.getElementById("calendar-container");
+const adminContainer = document.getElementById("admin-container");
+const notePopup = document.getElementById("notePopup");
+const noteText = document.getElementById("noteText");
+const saveNoteBtn = document.getElementById("saveNoteBtn");
+const closePopupBtn = document.querySelector("#notePopup .closeBtn");
+const backBtn = document.getElementById("backBtn");
+const backAdminBtn = document.getElementById("backAdminBtn");
+const notesList = document.getElementById("notesList");
+const calendarBody = document.getElementById("calendarBody");
+const monthCaption = document.getElementById("monthCaption");
+const prevMonth = document.getElementById("prevMonth");
+const nextMonth = document.getElementById("nextMonth");
+
+const verCuentasBtn = document.getElementById("verCuentasBtn");
+const listaCuentasDiv = document.getElementById("listaCuentasDiv");
+const cambiarPassBtn = document.getElementById("cambiarPassBtn");
+const usuarioCambio = document.getElementById("usuarioCambio");
+const nuevaPass = document.getElementById("nuevaPass");
+const confirmDeletePopup = document.getElementById("confirmDeletePopup");
+const confirmYesBtn = document.getElementById("confirmYesBtn");
+const confirmNoBtn = document.getElementById("confirmNoBtn");
+
+let currentUser = "";
+let activeDay = null;
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+const monthNames = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+let cuentaAEliminar = null;
+
+if(sessionStorage.getItem("loggedIn")==="true"){
+    currentUser=sessionStorage.getItem("currentUser");
+    loginContainer.style.display="none";
+    if(currentUser==="admin"){ adminContainer.style.display="flex"; }
+    else { calendarContainer.style.display="flex"; generateCalendar(currentMonth,currentYear); updateAllNotes(); }
+}
+
+createBtn.addEventListener("click",()=>{
+    const username=document.getElementById("username").value.trim();
+    const password=document.getElementById("password").value.trim();
+    if(!username||!password){ alert("Ingresa usuario y contraseña."); return; }
+    let cuentas=JSON.parse(localStorage.getItem("cuentas"))||{};
+    if(cuentas[username]){ alert("Usuario ya existe."); return; }
+    cuentas[username]=password;
+    localStorage.setItem("cuentas",JSON.stringify(cuentas));
+    alert("Cuenta creada!");
+});
+
+loginBtn.addEventListener("click",()=>{
+    const username=document.getElementById("username").value.trim();
+    const password=document.getElementById("password").value.trim();
+    if(username==="admin" && password==="1234"){
+        sessionStorage.setItem("loggedIn","true");
+        sessionStorage.setItem("currentUser","admin");
+        loginContainer.style.display="none";
+        adminContainer.style.display="flex";
+        return;
+    }
+    let cuentas=JSON.parse(localStorage.getItem("cuentas"))||{};
+    if(cuentas[username]===password){
+        currentUser=username;
+        sessionStorage.setItem("loggedIn","true");
+        sessionStorage.setItem("currentUser",username);
+        loginContainer.style.display="none";
+        calendarContainer.style.display="flex";
+        generateCalendar(currentMonth,currentYear);
+        updateAllNotes();
+    } else { alert("Usuario o contraseña incorrecta"); }
+});
+
+backBtn.addEventListener("click",()=>{
+    calendarContainer.style.display="none";
+    loginContainer.style.display="flex";
+    sessionStorage.removeItem("loggedIn");
+    sessionStorage.removeItem("currentUser");
+});
+
+backAdminBtn.addEventListener("click",()=>{
+    adminContainer.style.display="none";
+    loginContainer.style.display="flex";
+    sessionStorage.removeItem("loggedIn");
+    sessionStorage.removeItem("currentUser");
+});
+
+closePopupBtn.addEventListener("click",()=>{ notePopup.classList.remove("show"); });
+
+saveNoteBtn.addEventListener("click",()=>{
+    if(!activeDay) return;
+    const notasUsuario = JSON.parse(localStorage.getItem("notas_"+currentUser))||{};
+    const key = `${activeDay.dataset.dia}-${currentMonth+1}-${currentYear}`;
+    if(noteText.value){ notasUsuario[key]=noteText.value; activeDay.style.backgroundColor="rgba(255,215,0,0.6)"; }
+    else{ delete notasUsuario[key]; activeDay.style.backgroundColor=""; }
+    localStorage.setItem("notas_"+currentUser,JSON.stringify(notasUsuario));
+    notePopup.classList.remove("show");
+    updateAllNotes();
+});
+
+function generateCalendar(month,year){
+    calendarBody.innerHTML="";
+    const firstDay=(new Date(year,month,1).getDay()+6)%7;
+    const daysInMonth=new Date(year,month+1,0).getDate();
+    let row=document.createElement("tr");
+    let dayCounter=1;
+    for(let i=0;i<42;i++){
+        let td=document.createElement("td");
+        if(i>=firstDay && dayCounter<=daysInMonth){
+            td.textContent=dayCounter;
+            td.classList.add("dia");
+            td.dataset.dia=dayCounter;
+            td.addEventListener("click",()=>{
+                activeDay=td;
+                const notasUsuario = JSON.parse(localStorage.getItem("notas_"+currentUser))||{};
+                const key = `${td.dataset.dia}-${month+1}-${year}`;
+                noteText.value = notasUsuario[key]||"";
+                notePopup.classList.add("show");
+            });
+            const notasUsuario = JSON.parse(localStorage.getItem("notas_"+currentUser))||{};
+            const key = `${dayCounter}-${month+1}-${year}`;
+            if(notasUsuario[key]) td.style.backgroundColor="rgba(255,215,0,0.6)";
+        }
+        row.appendChild(td);
+        if(i%7===6){ calendarBody.appendChild(row); row=document.createElement("tr"); }
+        dayCounter++;
+    }
+    monthCaption.textContent=`${monthNames[month]} ${year}`;
+}
+
+prevMonth.addEventListener("click",()=>{ currentMonth--; if(currentMonth<0){ currentMonth=11; currentYear--; } generateCalendar(currentMonth,currentYear); updateAllNotes(); });
+nextMonth.addEventListener("click",()=>{ currentMonth++; if(currentMonth>11){ currentMonth=0; currentYear++; } generateCalendar(currentMonth,currentYear); updateAllNotes(); });
+
+function updateAllNotes(){
+    notesList.innerHTML="";
+    const notasUsuario = JSON.parse(localStorage.getItem("notas_"+currentUser))||{};
+    const keys = Object.keys(notasUsuario);
+    if(keys.length>0){
+        keys.forEach(k=>{
+            const div=document.createElement("div");
+            div.classList.add("noteItem");
+            div.textContent=`${k}: ${notasUsuario[k]}`;
+            notesList.appendChild(div);
+        });
+    } else { notesList.innerHTML="<div style='text-align:center; opacity:0.7;'>Sin notas guardadas</div>"; }
+}
+
+verCuentasBtn.addEventListener("click", ()=>{
+    listaCuentasDiv.innerHTML="";
+    const cuentas = JSON.parse(localStorage.getItem("cuentas"))||{};
+    const keys = Object.keys(cuentas);
+    if(keys.length===0){ listaCuentasDiv.innerHTML="<div>No hay cuentas creadas</div>"; return; }
+
+    const table = document.createElement("table");
+    table.style.width="100%";
+    table.style.borderCollapse="collapse";
+    table.innerHTML = `
+        <thead>
+            <tr style="border-bottom:1px solid white;">
+                <th style="text-align:left; padding:5px;">Usuario</th>
+                <th style="text-align:right; padding:5px;">Acción</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+    const tbody = table.querySelector("tbody");
+    keys.forEach(u=>{
+        const tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid rgba(255,255,255,0.2)";
+        tr.innerHTML = `<td style="padding:5px;">${u}</td>`;
+        const tdAction = document.createElement("td");
+        tdAction.style.textAlign="right";
+        const delBtn = document.createElement("button");
+        delBtn.textContent="Borrar cuenta";
+        delBtn.style.padding="4px 8px";
+        delBtn.addEventListener("click", ()=>{
+            cuentaAEliminar = u;
+            confirmDeletePopup.style.display="block";
+        });
+        tdAction.appendChild(delBtn);
+        tr.appendChild(tdAction);
+        tbody.appendChild(tr);
+    });
+    listaCuentasDiv.appendChild(table);
+});
+
+confirmYesBtn.addEventListener("click", ()=>{
+    if(cuentaAEliminar){
+        let cuentas = JSON.parse(localStorage.getItem("cuentas"))||{};
+        delete cuentas[cuentaAEliminar];
+        localStorage.setItem("cuentas", JSON.stringify(cuentas));
+        localStorage.removeItem("notas_" + cuentaAEliminar);
+        cuentaAEliminar = null;
+        confirmDeletePopup.style.display="none";
+        verCuentasBtn.click();
+        alert("Cuenta eliminada!");
+    }
+});
+confirmNoBtn.addEventListener("click", ()=>{
+    cuentaAEliminar = null;
+    confirmDeletePopup.style.display="none";
+});
+
+cambiarPassBtn.addEventListener("click", ()=>{
+    const user = usuarioCambio.value.trim();
+    const pass = nuevaPass.value.trim();
+    if(!user || !pass){ alert("Completa ambos campos"); return; }
+    let cuentas = JSON.parse(localStorage.getItem("cuentas"))||{};
+    if(!cuentas[user]){ alert("Usuario no existe"); return; }
+    cuentas[user]=pass;
+    localStorage.setItem("cuentas", JSON.stringify(cuentas));
+    alert("Contraseña actualizada");
+});
+</script>
+
+</body>
+</html>
